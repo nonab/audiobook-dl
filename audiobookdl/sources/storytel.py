@@ -105,6 +105,8 @@ class StorytelSource(Source):
 
     def __init__(self, options) -> None:
         super().__init__(options)
+        self.ebook = options.ebook
+
         self.database_directory_books = os.path.join(self.database_directory, "books")
         self.database_directory_playback_metadata = os.path.join(
             self.database_directory, "playback-metadata"
@@ -171,6 +173,8 @@ class StorytelSource(Source):
     def _do_login(self) -> None:
         resp = self._session.post(
             f"https://www.storytel.com/api/login.action?m=1&token=guestsv&userid=-1&version=24.22&terminal=android&locale=sv&deviceId=995f2562-0e44-4410-b1b9-8d08261f33c4&kidsMode=false",
+#            f"https://www.storytel.com/api/login.action?m=1&token=guestpl&userid=-1&version=24.37&terminal=android&locale=pl&deviceId=6f967429-425e-4322-962a-778c5aec043d&kidsMode=false",
+
             data={
                 "uid": self._username,
                 "pwd": self._password,
@@ -234,7 +238,7 @@ class StorytelSource(Source):
         books: List[Union[BookId[str], Audiobook]] = []
         for item in list_details["items"]:
             abook_formats = [
-                format for format in item["formats"] if format["type"] == "abook"
+                format for format in item["formats"] if format["type"] == ("ebook" if self.ebook is not None else "abook")
             ]
             if (
                 len(abook_formats) > 0
@@ -259,7 +263,6 @@ class StorytelSource(Source):
         cover = self.download_cover(book_details)
         chapters = self.get_chapters(book_details)
         self._update_metadata(consumableId, book_details, metadata, files)
-
         return Audiobook(
             session=self._session,
             files=files,
@@ -418,8 +421,9 @@ class StorytelSource(Source):
 
         Get the final Audio URL by sending a requests to the assets API and return the redirect location.
         """
+        consumable_type = "ebook" if self.ebook is not None else "abook"
         resp = self._session.get(
-            f"https://api.storytel.net/assets/v2/consumables/{consumableId}/abook",
+            f"https://api.storytel.net/assets/v2/consumables/{consumableId}/{consumable_type}",
             allow_redirects=False,
         )
         self._download_counter += 1
@@ -438,9 +442,9 @@ class StorytelSource(Source):
             AudiobookFile(
                 url=audio_url,
                 headers=self._session.headers,
-                ext="mp3",
+                ext="epub" if self.ebook is not None else "mp3",
                 expected_status_code=200,
-                expected_content_type="audio/mpeg",
+                expected_content_type="application/epub+zip" if self.ebook is not None else "audio/mpeg",
             )
         ]
 
