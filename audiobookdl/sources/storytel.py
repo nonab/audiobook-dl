@@ -345,7 +345,7 @@ class StorytelSource(Source):
             svg_headphone_element = item.cssselect(
                 f"svg > path[d='{svg_headphone_path}']"
             )
-            if len(svg_headphone_element) == 0:
+            if len(svg_headphone_element) == 0 and self.ebook is None:
                 logging.debug(f"skipping {href} (has no audiobook)")
                 continue
 
@@ -478,7 +478,7 @@ class StorytelSource(Source):
 
         if not "formats" in book_details:
             raise DataNotPresent
-        abook_formats = [f for f in book_details["formats"] if f["type"] == "abook"]
+        abook_formats = [f for f in book_details["formats"] if f["type"] == ("ebook" if self.ebook is not None else "abook")]
         if len(abook_formats) == 0:
             raise BookHasNoAudiobook
         elif len(abook_formats) != 1:
@@ -514,7 +514,7 @@ class StorytelSource(Source):
         if not "formats" in playback_metadata:
             raise DataNotPresent
         for format in playback_metadata["formats"]:
-            if format["type"] == "abook":
+            if format["type"] == ("ebook" if self.ebook is not None else "abook"):
                 return format
         raise DataNotPresent
 
