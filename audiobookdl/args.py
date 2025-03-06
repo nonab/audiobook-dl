@@ -138,6 +138,13 @@ def parse_arguments() -> Any:
         dest = "ebook",
         help = "Download ebook instead of audiobook (only for storytel)"
     )
+    parser.add_argument(
+        '--generate_cue',
+        '-gc',
+        dest = "generate_cue",
+        help = "Generate cue file for mp3",
+        action="store_true"
+    )
     return parser.parse_args()
 
 

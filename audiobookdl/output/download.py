@@ -11,7 +11,7 @@ from rich.prompt import Confirm
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from math import log10
-
+import sys
 
 DOWNLOAD_PROGRESS: List[Union[str, ProgressColumn]] = [
     SpinnerColumn(),
@@ -63,6 +63,11 @@ def download_audiobook(audiobook: Audiobook, output_dir: str, options):
     # Add metadata
     if len(filepaths) == 1:
         add_metadata_to_file(audiobook, filepaths[0], options)
+        if options.generate_cue:
+            if len(audiobook.chapters) > 1:
+                performer = audiobook.metadata.narrators[0]
+                title = audiobook.metadata.authors[0] + " - " + audiobook.metadata.title
+                generate_cue_file(audiobook.chapters, filepaths, performer, title)
     else:
         add_metadata_to_dir(audiobook, filepaths, output_dir, options)
 
@@ -90,6 +95,34 @@ def add_metadata_to_file(audiobook: Audiobook, filepath: str, options):
         logging.book_update("Embedding cover")
         metadata.embed_cover(filepath, audiobook.cover)
 
+def milliseconds_to_cue_time(ms):
+    """Convert milliseconds to CUE sheet time format (MM:SS:FF)"""
+    total_seconds = ms // 1000
+    minutes = total_seconds // 60
+    seconds = total_seconds % 60
+    frames = (ms % 1000) // 13  # 75 frames per second (1000ms / 75 ≈ 13ms per frame)
+    return f"{minutes:02}:{seconds:02}:{frames:02}"
+
+def generate_cue_file(chapters, filepaths, performer, title):
+    """Generate a .cue file based on chapter data with performer and title"""
+    if not filepaths:
+        raise ValueError("No file provided")
+
+    mp3_filename = filepaths[0]
+    cue_filename = os.path.splitext(mp3_filename)[0] + ".cue"
+
+    with open(cue_filename, "w", encoding="utf-8") as cue_file:
+        cue_file.write(f'PERFORMER "{performer}"\n')
+        cue_file.write(f'TITLE "{title}"\n')
+        cue_file.write(f'FILE "{mp3_filename}" MP3\n')
+
+        for i, chapter in enumerate(chapters, start=1):
+            cue_time = milliseconds_to_cue_time(chapter.start)
+            cue_file.write(f'  TRACK {i:02} AUDIO\n')
+            cue_file.write(f'    TITLE "{chapter.title}"\n')
+            cue_file.write(f'    INDEX 01 {cue_time}\n')
+
+    logging.book_update("Creating CUE file")
 
 def add_metadata_to_dir(audiobook: Audiobook, filepaths: Iterable[str], output_dir: str, options):
     """
@@ -100,6 +133,10 @@ def add_metadata_to_dir(audiobook: Audiobook, filepaths: Iterable[str], output_d
     :param output_dir: Directory where files are stored
     :param optiosn: Cli options
     """
+    for filepath in filepaths:
+        _, ext = os.path.splitext(filepath)  # Get the file extension
+        if ext.lower() == ".mp3":
+            return
     logging.book_update("Adding metadata")
     for filepath in filepaths:
         metadata.add_metadata(filepath, audiobook.metadata)
@@ -177,7 +214,7 @@ def download_file(args: Tuple[Audiobook, str, int, Any]) -> str:
                             expected_status_code=file.expected_status_code,
                             expected_content_type=file.expected_content_type,
                             )
-    total_filesize = int(request.headers["Content-length"])
+    total_filesize = int(request.headers.get("Content-Length", 0)) if "Content-Length" in request.headers else int(request.headers["content-range"].split("/")[1]) if "content-range" in request.headers else None
     if not file.expected_status_code:
         logging.debug(f"expected_status_code not set by source, status-code is {request.status_code}, please update the source implementation")
     if not file.expected_content_type:
