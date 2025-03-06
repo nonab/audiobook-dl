@@ -9,11 +9,13 @@ CLI tool for downloading audiobooks from online sources.
 ## Supported Services
 audiobook-dl currently supports downloading from the following sources:
 - [audiobooks.com](https://audiobooks.com)
+- [audioteka.pl](https://audioteka.pl)
 - [Blinkist](https://www.blinkist.com)
 - [Chirp](https://www.chirpbooks.com/)
 - [eReolen](https://ereolen.dk)
 - [Everand (previously Scribd)](https://everand.com)
 - [Librivox](https://librivox.org)
+- [Kubus](https://kubus.pl/audiobooki)
 - [Nextory](https://nextory.com)
 - [Overdrive](https://www.overdrive.com/)
 - [Podimo](https://podimo.com)
@@ -69,21 +71,22 @@ information page**
 
 ## Arguments
 
-| Argument          | Value                                                             |
-|-------------------|-------------------------------------------------------------------|
-| url               | The url of the page where you listen to the audiobook             |
-| -c/--cookie       | Path to a Netscape cookie file                                    |
-| --combine         | Combine all output files into a single file (requires ffmpeg)     |
-| --cover           | Only download cover                                               |
-| -d/--debug        | Print debug information                                           |
-| -o/--output       | Output location                                                   |
-| --remove-chars    | List of characters that will be removed from output path          |
-| --no-chapters     | Don't include chapters in output file                             |
-| --output-format   | Output file format                                                |
-| --verbose-ffmpeg | Show ffmpeg output in terminal                                    |
-| --username        | Username to source (Required when using login)                    |
-| --password        | Password to source (Required when using login)                    |
-| --library         | Specific library on service (Sometimes required when using login) |
+| Argument           | Value                                                             |
+|--------------------|-------------------------------------------------------------------|
+| url                | The url of the page where you listen to the audiobook             |
+| -c/--cookie        | Path to a Netscape cookie file                                    |
+| --combine          | Combine all output files into a single file (requires ffmpeg)     |
+| --cover            | Only download cover                                               |
+| -d/--debug         | Print debug information                                           |
+| -o/--output        | Output location                                                   |
+| --remove-chars     | List of characters that will be removed from output path          |
+| --no-chapters      | Don't include chapters in output file                             |
+| --output-format    | Output file format                                                |
+| --verbose-ffmpeg   | Show ffmpeg output in terminal                                    |
+| --username         | Username to source (Required when using login)                    |
+| --password         | Password to source (Required when using login)                    |
+| --library          | Specific library on service (Sometimes required when using login) |
+| -gc/--generate_cue | Generate CUE file for mp3 (for books with more than 1 chapter)    |
 
 ## Output
 By default, audiobook-dl saves all audiobooks to `{title}` relative to the
