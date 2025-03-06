@@ -13,6 +13,8 @@ from .saxo import SaxoSource
 from .everand import EverandSource
 from .storytel import StorytelSource
 from .yourcloudlibrary import YourCloudLibrarySource
+from .kubus import KubusSource
+from .audioteka import AudiotekaSource
 
 from ..exceptions import NoSourceFound
 import re
@@ -44,6 +46,8 @@ def get_source_classes() -> List[Type[Source]]:
         EverandSource,
         StorytelSource,
         YourCloudLibrarySource,
+        KubusSource,
+        AudiotekaSource
     ]
 
 
