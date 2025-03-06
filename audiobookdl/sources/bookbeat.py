@@ -32,8 +32,10 @@ class BookBeatSource(Source):
     def _login(self, url: str, username: str, password: str):
         headers: MutableMapping[str, Union[str, bytes]] = {
             "accept": "application/hal+json",
+            "api-version": "9",
             "bb-client": "BookBeatApp",
             "bb-device": self.create_device_id(),
+            "User-Agent": "BookBeat 8.5.1 tablet samsung Dalvik/2.1.0 (Linux; U; Android 9; SM-S9260 Build/PQ3B.190801.10101846)"
         }
         self._session.headers = headers
         login_json = {"username": username, "password": password}
@@ -60,8 +62,7 @@ class BookBeatSource(Source):
             files = self.get_files(book_info),
             metadata = self.get_metadata(book_info),
             cover = self.get_cover(book_info),
-            chapters = self.get_chapters(book_info),
-        )
+            chapters = self.get_chapters(self, book_info),        )
 
 
     def download_license_url(self, book_info)-> str:
@@ -112,8 +113,11 @@ class BookBeatSource(Source):
 
 
     @staticmethod
-    def get_chapters(book_info: Dict) -> List[Chapter]:
+    def get_chapters(self, book_info: Dict) -> List[Chapter]:
         chapters = []
+        license_url = self.download_license_url(book_info)
+        lic = self.get_json(license_url)
+        book_info["license"] = lic
         for chapter_number, track in enumerate(book_info["license"]["tracks"]):
             chapters.append(Chapter(track["start"], f"Chapter {chapter_number+1}"))
         return chapters
