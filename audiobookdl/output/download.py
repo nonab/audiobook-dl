@@ -12,6 +12,7 @@ from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from math import log10
 import sys
+from sanitize_filename import sanitize
 
 DOWNLOAD_PROGRESS: List[Union[str, ProgressColumn]] = [
     SpinnerColumn(),
@@ -189,11 +190,11 @@ def create_filepath(audiobook: Audiobook, output_dir: str, index: int) -> Tuple[
     :returns: Filepath, Filepath_tmp
     """
     extension = audiobook.files[index].ext
+    filename = sanitize(audiobook.files[index].title)
     if len(audiobook.files) == 1:
         path = f"{output_dir}.{extension}"
     else:
-        padded_index = str(index).zfill(int(log10(len(audiobook.files))))
-        name = f"Part {padded_index}.{extension}"
+        name = f"{filename}.{extension}"
         path = os.path.join(output_dir, name)
     path_tmp = f"{path}.tmp"
     return path, path_tmp

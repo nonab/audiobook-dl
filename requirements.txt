@@ -12,3 +12,4 @@ bs4
 appdirs
 mutagen
 tomli
+sanitize-filename
