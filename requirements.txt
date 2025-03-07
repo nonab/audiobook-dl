@@ -1,0 +1,14 @@
+urllib3
+requests
+attrs
+pycountry
+rich
+m3u8
+lxml
+cssselect
+pycryptodome
+Pillow
+bs4
+appdirs
+mutagen
+tomli
