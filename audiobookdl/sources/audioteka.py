@@ -67,7 +67,14 @@ class AudiotekaSource(Source):
 
         try:
             chapters_data = response.json()
-            for chapter in chapters_data["_embedded"]["app:track"]:
+            add_prefix = False
+            for index, chapter in enumerate(chapters_data["_embedded"]["app:track"], start=1):
+                title = chapter["title"]
+                if add_prefix == False and chapters_data["_embedded"]["app:track"][index]["title"] == title:
+                    add_prefix = True
+                if add_prefix == True:
+                    title = f"{index} {title}"
+
                 chapter_url = f"{API_BASE_URL}{chapter['_links']['app:file']['href']}"
                 chapter_response = self._session.get(chapter_url).json()
 
@@ -76,7 +83,7 @@ class AudiotekaSource(Source):
                     sys.exit()
 
                 files.append(AudiobookFile(
-                    title=chapter["title"],
+                    title=title,
                     url=chapter_response["url"],
                     ext="mp3"
                 ))
