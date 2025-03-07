@@ -190,10 +190,11 @@ def create_filepath(audiobook: Audiobook, output_dir: str, index: int) -> Tuple[
     :returns: Filepath, Filepath_tmp
     """
     extension = audiobook.files[index].ext
-    filename = sanitize(audiobook.files[index].title)
+
     if len(audiobook.files) == 1:
         path = f"{output_dir}.{extension}"
     else:
+        filename = sanitize(audiobook.files[index].title)
         name = f"{filename}.{extension}"
         path = os.path.join(output_dir, name)
     path_tmp = f"{path}.tmp"
