@@ -68,7 +68,7 @@ class AudiotekaSource(Source):
         try:
             chapters_data = response.json()
             add_prefix = False
-            for index, chapter in enumerate(chapters_data["_embedded"]["app:track"], start=1):
+            for index, chapter in enumerate(chapters_data["_embedded"]["app:track"], start=0):
                 title = chapter["title"]
                 if add_prefix == False and chapters_data["_embedded"]["app:track"][index]["title"] == title:
                     add_prefix = True
