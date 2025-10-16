@@ -167,7 +167,7 @@ def process_audiobook(source: Source, audiobook: Audiobook, options) -> None:
     if options.print_output:
         print_output(audiobook, options)
     elif options.cover:
-        download_cover(audiobook)
+        download_cover(audiobook, options)
     else:
         download(audiobook, options)
         source.on_download_complete(audiobook)
@@ -181,7 +181,7 @@ def print_output(audiobook: Audiobook, options) -> None:
     print(location)
 
 
-def download_cover(audiobook: Audiobook) -> None:
+def download_cover(audiobook: Audiobook, options) -> None:
     """
     Download audiobook cover
 
@@ -189,7 +189,15 @@ def download_cover(audiobook: Audiobook) -> None:
     """
     cover = audiobook.cover
     if cover:
-        with open(f"cover.{cover.extension}", "wb") as f:
+        output_dir = output.gen_output_location(
+            options.output_template,
+            audiobook.metadata,
+            options.remove_chars
+        )
+        os.makedirs(output_dir, exist_ok=True)
+
+        cover_path = os.path.join(output_dir, f"cover.{cover.extension}")
+        with open(cover_path, "wb") as f:
             f.write(cover.image)
 
 
