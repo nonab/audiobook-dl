@@ -79,7 +79,6 @@ class AudiotekaSource(Source):
                 chapter_response = self._session.get(chapter_url).json()
 
                 if chapter_response.get("message") is not None:
-                    print(chapter_response.get("message"))
                     sys.exit()
 
                 files.append(AudiobookFile(
