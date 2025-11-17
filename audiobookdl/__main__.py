@@ -172,6 +172,7 @@ def process_audiobook(source: Source, audiobook: Audiobook, options) -> None:
         download_cover(audiobook, options)
     else:
         download(audiobook, options)
+        download_cover(audiobook, options)        
         source.on_download_complete(audiobook)
 
 
