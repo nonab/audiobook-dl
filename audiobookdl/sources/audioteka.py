@@ -102,26 +102,38 @@ class AudiotekaSource(Source):
 
     @staticmethod
     def extract_id_from_url(url: str) -> str:
-        # Fetch the page content
         response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
-
         if response.status_code != 200:
             raise ValueError(f"Failed to fetch URL: {url}, Status Code: {response.status_code}")
 
-        html_content = response.text
+        html = response.text
 
-        # Extract the dataLayer script using regex
-        match = re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', html_content, re.DOTALL)
+        # ============================================================
+        # 1) Try: __NEXT_DATA__
+        # ============================================================
+        next_data_match = re.search(
+            r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
+            html,
+            re.DOTALL
+        )
 
-        if not match:
-            raise ValueError("Could not find __NEXT_DATA__ script in the page source")
+        if next_data_match:
+            try:
+                data = json.loads(next_data_match.group(1))
+                return data["props"]["pageProps"]["audiobook"]["id"]
+            except Exception:
+                pass  # fallback below
 
-        json_data = match.group(1)  # Extract JSON string
+        # ============================================================
+        # 2) Fallback: extract ID from /v2/me/playback-progress/XXXXX\"}
+        # ============================================================
 
-        # Parse JSON data
-        try:
-            parsed_data = json.loads(json_data)
-            item_id = parsed_data["props"]["pageProps"]["audiobook"]["id"]
-            return item_id
-        except (KeyError, IndexError, json.JSONDecodeError) as e:
-            raise ValueError(f"Failed to extract item_id: {e}")
+        # Regex: capture everything between prefix and before the \"}
+        m = re.search(
+            r'/v2/me/playback-progress/([0-9a-fA-F-]{36})\\?"?}',
+            html
+        )
+        if m:
+            return m.group(1)
+
+        raise ValueError("Unable to extract audiobook ID from page.")
