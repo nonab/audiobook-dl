@@ -67,6 +67,10 @@ class AudiotekaSource(Source):
 
         try:
             chapters_data = response.json()
+            if chapters_data.get("message") == "Bad credentials":
+                print("Regenerate cookies, API returned 'Bad credentials' message")
+                sys.exit()
+                
             add_prefix = False
             for index, chapter in enumerate(chapters_data["_embedded"]["app:track"], start=0):
                 title = chapter["title"]
