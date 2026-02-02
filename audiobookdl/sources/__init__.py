@@ -15,7 +15,7 @@ from .storytel import StorytelSource
 from .yourcloudlibrary import YourCloudLibrarySource
 from .kubus import KubusSource
 from .audioteka import AudiotekaSource
-
+from .magazynpismo import PismoSource
 from ..exceptions import NoSourceFound
 import re
 from typing import Iterable, List, Type
@@ -47,7 +47,8 @@ def get_source_classes() -> List[Type[Source]]:
         StorytelSource,
         YourCloudLibrarySource,
         KubusSource,
-        AudiotekaSource
+        AudiotekaSource,
+        PismoSource
     ]
 
 
