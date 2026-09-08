@@ -13,6 +13,7 @@ from rich.prompt import Confirm
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from math import log10
+from sanitize_filename import sanitize
 
 
 DOWNLOAD_PROGRESS: List[Union[str, ProgressColumn]] = [
@@ -142,12 +143,7 @@ def download_files_with_cli_output(audiobook: Audiobook, output_dir: str) -> Lis
     :param output_dir: Output directory where files are downloaded to
     :returns: A list of paths of the downloaded files
     """
-    if len(audiobook.files) > 1:
-        setup_download_dir(output_dir)
-    else:
-        parent = Path(output_dir).parent
-        if not parent.exists():
-            os.makedirs(parent)
+    setup_download_dir(output_dir)
     with logging.progress(DOWNLOAD_PROGRESS) as progress:
         task = progress.add_task(
             f"Downloading [blue]{audiobook.title}",
@@ -164,7 +160,7 @@ def download_files_with_cli_output(audiobook: Audiobook, output_dir: str) -> Lis
 
 def create_filepath(audiobook: Audiobook, output_dir: str, index: int) -> Tuple[str, str]:
     """
-    Create output file path for file number `index` in `audibook`
+    Create output file path for file number `index` in `audiobook`
 
     :param audiobook: Currently downloading audiobook
     :param output_dir: Directory where file should be stored
@@ -173,10 +169,23 @@ def create_filepath(audiobook: Audiobook, output_dir: str, index: int) -> Tuple[
     """
     extension = audiobook.files[index].ext
     if len(audiobook.files) == 1:
-        path = f"{output_dir}.{extension}"
+        base_name = os.path.basename(output_dir) or sanitize(audiobook.title)
+        raw_title = audiobook.files[index].title or ""
+        sanitized_title = sanitize(raw_title)
+        if not sanitized_title or sanitized_title.lower().startswith("chapter"):
+            filename = base_name
+        else:
+            filename = sanitized_title
+        name = f"{filename}.{extension}"
+        path = os.path.join(output_dir, name)
     else:
-        padded_index = str(index).zfill(int(log10(len(audiobook.files))) + 1)
-        name = f"Part {padded_index}.{extension}"
+        raw_title = audiobook.files[index].title
+        if raw_title:
+            filename = sanitize(raw_title)
+        else:
+            padded_index = str(index).zfill(int(log10(len(audiobook.files))) + 1)
+            filename = f"Part {padded_index}"
+        name = f"{filename}.{extension}"
         path = os.path.join(output_dir, name)
     path_tmp = f"{path}.tmp"
     return path, path_tmp
@@ -289,6 +298,8 @@ def setup_download_dir(path: str) -> None:
     """
     logging.book_update("Creating output dir")
     if os.path.isdir(path):
+        if not any(os.scandir(path)):
+            return
         answer = Confirm.ask(
             f"The folder '[blue]{path}[/blue]' already exists. Do you want to override it?"
         )
@@ -296,4 +307,4 @@ def setup_download_dir(path: str) -> None:
             shutil.rmtree(path)
         else:
             exit()
-    os.makedirs(path)
+    os.makedirs(path, exist_ok=True)

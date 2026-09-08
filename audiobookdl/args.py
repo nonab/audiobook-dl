@@ -133,6 +133,23 @@ def parse_arguments() -> Any:
         dest = "config_location",
         help = "Alternative location of config file"
     )
+    parser.add_argument(
+        '--ebook',
+        dest = "ebook",
+        help = "Download ebook instead of audiobook (supported for storytel, empikgo, legimi)"
+    )
+    parser.add_argument(
+        '--device-id',
+        dest = "device_id",
+        help = "Device ID to impersonate/hijack (e.g. for Legimi)"
+    )
+    parser.add_argument(
+        '--generate_cue',
+        '-gc',
+        dest = "generate_cue",
+        help = "Generate cue file for mp3",
+        action="store_true"
+    )
     return parser.parse_args()
 
 

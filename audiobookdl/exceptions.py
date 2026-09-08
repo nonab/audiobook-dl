@@ -29,8 +29,11 @@ class NoSourceFound(AudiobookDLException):
     error_description = "no_source_found"
 
     def print(self):
-        source_name_list = "\n".join([f" • {name}" for name in sources.get_source_names()])
-        print_error_file(self.error_description, sources=source_name_list, **self.data)
+        try:
+            source_name_list = "\n".join([f" • {name}" for name in sources.get_source_names()])
+            print_error_file(self.error_description, sources=source_name_list, **self.data)
+        except Exception:
+            logging.error(str(self))
 
 class RequestError(AudiobookDLException):
     error_description = "request_error"
