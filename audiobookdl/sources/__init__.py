@@ -2,6 +2,7 @@ from .source import Source
 
 from .audioteka import AudiotekaSource
 from .kubus import KubusSource
+from .magazynpismo import MagazynPismoSource
 from .audiobooksdotcom import AudiobooksdotcomSource
 from .blinkist import BlinkistSource
 from .bookbeat import BookBeatSource
@@ -35,6 +36,7 @@ def get_source_classes() -> List[Type[Source]]:
     return [
         AudiotekaSource,
         KubusSource,
+        MagazynPismoSource,
         AudiobooksdotcomSource,
         BlinkistSource,
         BookBeatSource,
