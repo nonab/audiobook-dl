@@ -6,6 +6,7 @@
 | audiobooks.com   |    ✓    |         ✗         | Can download all books from library                                                            |
 | Blinkist         |    ✓    |         ✗         |                                                                                                |
 | Chirp            |    ✓    |         ✗         |                                                                                                |
+| Empik Go         |    ✓    |         ✓         | Supports web login (camoufox), cookies, audiobooks, and ebooks (--ebook 1)                     |
 | eReolen          |    ✓    |         ✓         |                                                                                                |
 | Everand          |    ✓    |         ✗         | Used to be called Scribd                                                                       |
 | Kubus            |    ✓    |         ✗         |                                                                                                |
