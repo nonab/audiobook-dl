@@ -1,5 +1,7 @@
 from .source import Source
 
+from .audioteka import AudiotekaSource
+from .kubus import KubusSource
 from .audiobooksdotcom import AudiobooksdotcomSource
 from .blinkist import BlinkistSource
 from .bookbeat import BookBeatSource
@@ -31,6 +33,8 @@ def find_compatible_source(url: str) -> Type[Source]:
 def get_source_classes() -> List[Type[Source]]:
     """Returns a list of all available sources"""
     return [
+        AudiotekaSource,
+        KubusSource,
         AudiobooksdotcomSource,
         BlinkistSource,
         BookBeatSource,
