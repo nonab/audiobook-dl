@@ -10,6 +10,7 @@
 | eReolen          |    ✓    |         ✓         |                                                                                                |
 | Everand          |    ✓    |         ✗         | Used to be called Scribd                                                                       |
 | Kubus            |    ✓    |         ✗         |                                                                                                |
+| Legimi           |    ✗    |         ✓         | Supports audiobooks, ebooks (--ebook 1), series, and device hijacking (--device-id)            |
 | Librivox         |    ✗    |         ✗         | Authentication not required                                                                    |
 | Magazyn Pismo    |    ✓    |         ✓         | Supports articles, podcasts, Śledztwo Pisma, and archive issues                                |
 | Nextory          |    ✗    |         ✓         | Books must be in "Your Library" <br/>Only single (first) account supported                     |

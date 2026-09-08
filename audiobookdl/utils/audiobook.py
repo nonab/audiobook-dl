@@ -26,7 +26,14 @@ class AESEncryption:
     iv: bytes
 
 
-AudiobookFileEncryption = AESEncryption
+@define
+class LegimiAESEncryption:
+    key: bytes
+    iv: bytes
+    offset: int = 10
+
+
+AudiobookFileEncryption = Union[AESEncryption, LegimiAESEncryption]
 
 
 @define
@@ -44,7 +51,7 @@ class AudiobookFile:
     # Expected content-type of the download request
     expected_content_type: Optional[str] = None
     # Expected status code of the download request
-    expected_status_code: int = 200
+    expected_status_code: Optional[int] = None
 
 
 @define
@@ -149,11 +156,9 @@ class AudiobookMetadata:
         if self.scrape_url:
             result["scrape_url"] = self.scrape_url
         if self.series:
-            # Audiobookshelf expects series as a string array, e.g. ["Name #1"]
-            if self.series_order is not None:
-                result["series"] = [f"{self.series} #{self.series_order}"]
-            else:
-                result["series"] = [self.series]
+            result["series"] = self.series
+        if self.series_order:
+            result["series_order"] = self.series_order
         if self.language:
             result["language"] = self.language
         if self.description:
