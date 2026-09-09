@@ -33,6 +33,8 @@ import requests
 
 CORE_SYNC_URL = "https://app.legimi.pl/svc/sync/core.aspx"
 CATALOGUE_SVC_URL = "https://app.legimi.pl/svc/catalogue/CatalogueService.svc/catalogue/lite2"
+UNLIMITED_SVC_URL = "https://app.legimi.pl/svc/catalogue/UnlimitedManagementSvc.svc/unlimited"
+UPDATE_SUBSCRIPTION_URL = "https://mobile-gp.legimi.pl/api/user/updatesubscription"
 MOBILE_GP_URL = "https://mobile-gp.legimi.pl"
 
 DEFAULT_DEVICE_CODE = "Android||Android 2.2+||Samsung:SM-S9210:2NZXl8uVMK/2yOqIUtgdw1cm55KdwNj4OD4A9IbUvfc=||PHONE"
@@ -263,14 +265,73 @@ class LegimiSource(Source):
             return match.group("id")
         raise ValueError(f"Could not extract book ID from URL: {url}")
 
-    def borrow_book(self, book_id: str) -> None:
-        """Borrows book / adds book to user shelf via CatalogueService lite2 download endpoint."""
+    def recycle_device(self) -> bool:
+        """
+        Calls /unlimited/recycle/ on UnlimitedManagementSvc to switch the active subscription
+        device slot to the current device ID.
+        """
         username = getattr(self._options, "username", None)
         password = getattr(self._options, "password", None)
-        if not username or not password:
-            return
+        if not username or not password or not self._device_id:
+            return False
 
-        logging.debug(f"Borrowing / activating book {book_id} on shelf...")
+        logging.log(f"Attempting to switch active Legimi device to device ID [blue]{self._device_id}[/]...")
+        url = f"{UNLIMITED_SVC_URL}/recycle/"
+        data = {
+            "dev": str(self._device_id),
+            "pass": password,
+            "user": username,
+        }
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "application/octet-stream",
+            "User-Agent": DEFAULT_USER_AGENT,
+        }
+        resp = self._session.post(url, data=data, headers=headers)
+        if resp.status_code == 200 and len(resp.content) >= 10:
+            proto, ptype, plen = struct.unpack("<ihI", resp.content[:10])
+            if ptype == 4102 and plen >= 2:
+                payload = resp.content[10:10 + plen]
+                count = struct.unpack("<h", payload[:2])[0]
+                idx = 2
+                fields = {}
+                for _ in range(count):
+                    if idx + 6 > len(payload):
+                        break
+                    fid, vlen = struct.unpack("<hI", payload[idx:idx + 6])
+                    idx += 6
+                    val = payload[idx:idx + vlen]
+                    idx += vlen
+                    fields[fid] = val
+
+                status_code = int.from_bytes(fields.get(1047, b"\x00"), "little")
+                if status_code == 0:
+                    logging.log("Successfully switched Legimi active device slot.")
+                    try:
+                        self._session.post(
+                            UPDATE_SUBSCRIPTION_URL,
+                            json={},
+                            headers={"User-Agent": DEFAULT_USER_AGENT, "Content-Type": "application/json"},
+                        )
+                    except Exception as e:
+                        logging.debug(f"Subscription update notification error: {e}")
+                    return True
+                else:
+                    logging.debug(f"Legimi device recycle returned status {status_code}.")
+
+        return False
+
+    def borrow_book(self, book_id: str, retry_after_recycle: bool = True) -> bool:
+        """
+        Borrows book / adds book to user shelf via CatalogueService lite2 download endpoint.
+        If device limit error (293) is returned, attempts device recycle and retries once.
+        """
+        username = getattr(self._options, "username", None)
+        password = getattr(self._options, "password", None)
+        if not username or not password or not self._device_id:
+            return False
+
+        logging.log(f"Adding book [blue]{book_id}[/] to Legimi shelf...")
         url = f"{CATALOGUE_SVC_URL}/download/"
         body = (
             f"id={book_id}&dev={self._device_id}&login={username}&pass={password}&unlimited=True&points=-1"
@@ -281,8 +342,29 @@ class LegimiSource(Source):
             "User-Agent": DEFAULT_USER_AGENT,
         }
         resp = self._session.post(url, data=body, headers=headers)
-        if resp.status_code != 200:
-            logging.debug(f"Borrow request status: {resp.status_code}")
+        if resp.status_code == 200 and len(resp.content) >= 10:
+            proto, ptype, plen = struct.unpack("<ihI", resp.content[:10])
+            if ptype == 293:  # ERR_UNLIMITED_REFRESH_REQUIRED / device limit
+                logging.log("Legimi device limit encountered while adding book to shelf.")
+                if retry_after_recycle:
+                    if self.recycle_device():
+                        return self.borrow_book(book_id, retry_after_recycle=False)
+                    else:
+                        raise UserNotAuthorized(
+                            "Legimi device limit reached and automatic device switch failed. "
+                            "Please specify your registered device ID via --device-id <ID>."
+                        )
+                else:
+                    raise UserNotAuthorized(
+                        "Legimi device limit reached. "
+                        "Please specify your registered device ID via --device-id <ID>."
+                    )
+            elif ptype == 2086:
+                logging.log(f"Book [blue]{book_id}[/] is now active on your shelf.")
+                return True
+            else:
+                logging.debug(f"Borrow returned unexpected packet type: {ptype}")
+        return False
 
     def get_audio_toc(self, book_id: str) -> List[Dict[str, Any]]:
         """

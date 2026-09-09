@@ -14,6 +14,7 @@ from audiobookdl.utils.audiobook import LegimiAESEncryption
 @pytest.fixture
 def source():
     options = SimpleNamespace(
+        database_directory=".",
         database_dir=".",
         skip_downloaded=False,
         username="test_user",
@@ -102,3 +103,92 @@ def test_decrypt_file_legimi():
     finally:
         if temp_path.exists():
             temp_path.unlink()
+
+
+def _make_recycle_resp(status_code: int = 0) -> bytes:
+    payload = struct.pack("<h", 2)
+    payload += struct.pack("<hI", 1047, 2) + struct.pack("<h", status_code)
+    payload += struct.pack("<hI", 1046, 4) + struct.pack("<i", 14)
+    return struct.pack("<ihI", 4, 4102, len(payload)) + payload
+
+
+def test_recycle_device_success(source, monkeypatch):
+    from unittest.mock import MagicMock
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.content = _make_recycle_resp(status_code=0)
+
+    monkeypatch.setattr(source._session, "post", lambda *args, **kwargs: mock_resp)
+    assert source.recycle_device() is True
+
+
+def test_recycle_device_failure(source, monkeypatch):
+    from unittest.mock import MagicMock
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.content = _make_recycle_resp(status_code=1)
+
+    monkeypatch.setattr(source._session, "post", lambda *args, **kwargs: mock_resp)
+    assert source.recycle_device() is False
+
+
+def test_borrow_book_success(source, monkeypatch):
+    from unittest.mock import MagicMock
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.content = struct.pack("<ihI", 4, 2086, 0)
+
+    monkeypatch.setattr(source._session, "post", lambda *args, **kwargs: mock_resp)
+    assert source.borrow_book("123456") is True
+
+
+def test_borrow_book_retry_after_recycle(source, monkeypatch):
+    from unittest.mock import MagicMock
+
+    call_count = 0
+
+    def mock_post(url, *args, **kwargs):
+        nonlocal call_count
+        resp = MagicMock()
+        resp.status_code = 200
+        if "recycle" in url:
+            resp.content = _make_recycle_resp(status_code=0)
+        elif "download" in url:
+            call_count += 1
+            if call_count == 1:
+                # First attempt: device limit 293
+                resp.content = struct.pack("<ihI", 4, 293, 0)
+            else:
+                # Second attempt after recycle: success 2086
+                resp.content = struct.pack("<ihI", 4, 2086, 0)
+        else:
+            resp.content = b"{}"
+        return resp
+
+    monkeypatch.setattr(source._session, "post", mock_post)
+    assert source.borrow_book("123456") is True
+    assert call_count == 2
+
+
+def test_borrow_book_switch_limit_exceeded(source, monkeypatch):
+    from unittest.mock import MagicMock
+    from audiobookdl.exceptions import UserNotAuthorized
+
+    def mock_post(url, *args, **kwargs):
+        resp = MagicMock()
+        resp.status_code = 200
+        if "recycle" in url:
+            # Recycle fails (switch limit exceeded)
+            resp.content = _make_recycle_resp(status_code=1)
+        elif "download" in url:
+            resp.content = struct.pack("<ihI", 4, 293, 0)
+        return resp
+
+    monkeypatch.setattr(source._session, "post", mock_post)
+    with pytest.raises(UserNotAuthorized) as exc_info:
+        source.borrow_book("123456")
+
+    assert "--device-id" in str(exc_info.value)
