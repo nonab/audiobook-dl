@@ -51,7 +51,7 @@ def print_error_file(name: str, **kwargs):
         msg = read_asset_file(f"assets/errors/{name}.txt").format(**kwargs)
         msg = msg.strip()
         error(msg)
-    except FileNotFoundError:
+    except (FileNotFoundError, OSError):
         error(f"[red]ERROR: {name}[/red]")
 
 

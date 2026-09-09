@@ -27,12 +27,13 @@ DOWNLOAD_PROGRESS: List[Union[str, ProgressColumn]] = [
 DOWNLOAD_ATTEMPTS = 5
 
 
-def download(audiobook: Audiobook, options):
+def download(audiobook: Audiobook, options) -> bool:
     """
     Download contents of audiobook
 
     :param audiobook: Audiobook to download
     :param options: Cli options
+    :returns: True if downloaded, False if skipped or failed
     """
     try:
         output_dir = output.gen_output_location(
@@ -40,7 +41,7 @@ def download(audiobook: Audiobook, options):
             audiobook.metadata,
             options.remove_chars
         )
-        download_audiobook(audiobook, output_dir, options)
+        return download_audiobook(audiobook, output_dir, options)
     except KeyboardInterrupt:
         logging.book_update("Stopped download")
         logging.book_update("Cleaning up files")
@@ -49,9 +50,10 @@ def download(audiobook: Audiobook, options):
             os.remove(filepath_tmp)
         else:
             shutil.rmtree(output_dir)
+        return False
 
 
-def download_audiobook(audiobook: Audiobook, output_dir: str, options):
+def download_audiobook(audiobook: Audiobook, output_dir: str, options) -> bool:
     """Download, convert, combine, and add metadata to files from `Audiobook` object"""
     # Check if file/dir exists and should be skipped
     if options.skip_downloaded:
@@ -63,13 +65,15 @@ def download_audiobook(audiobook: Audiobook, output_dir: str, options):
                 output_path = f"{output_dir}.{output_format}"
                 if os.path.exists(output_path):
                     logging.log(f"Skipping [blue]{audiobook.title}[/], file already exists.")
-                    return
+                    return False
         elif os.path.isdir(output_dir):  # multiple files, check for directory
             logging.log(f"Skipping [blue]{audiobook.title}[/], directory already exists.")
-            return
+            return False
 
     # Downloading files
     filepaths = download_files_with_cli_output(audiobook, output_dir)
+    if not filepaths:
+        return False
     # Converting files
     current_format, output_format = get_output_audio_format(options.output_format, filepaths)
     # Combine files
@@ -86,6 +90,7 @@ def download_audiobook(audiobook: Audiobook, output_dir: str, options):
         add_metadata_to_file(audiobook, filepaths[0], options)
     else:
         add_metadata_to_dir(audiobook, filepaths, output_dir, options)
+    return True
 
 
 def add_metadata_to_file(audiobook: Audiobook, filepath: str, options):
@@ -143,7 +148,9 @@ def download_files_with_cli_output(audiobook: Audiobook, output_dir: str) -> Lis
     :param output_dir: Output directory where files are downloaded to
     :returns: A list of paths of the downloaded files
     """
-    setup_download_dir(output_dir)
+    if not setup_download_dir(output_dir):
+        logging.log(f"Skipping [blue]{audiobook.title}[/]")
+        return []
     with logging.progress(DOWNLOAD_PROGRESS) as progress:
         task = progress.add_task(
             f"Downloading [blue]{audiobook.title}",
@@ -288,23 +295,24 @@ def get_output_audio_format(option: Optional[str], files: Sequence[str]) -> Tupl
     return current_format, output_format
 
 
-def setup_download_dir(path: str) -> None:
+def setup_download_dir(path: str) -> bool:
     """
     Creates output folder for the audiobook.
     Will give a prompt if the folder already exists.
 
     :param path: Path of output folder
-    :returns: Nothing
+    :returns: True if directory is ready, False if user chose not to override
     """
     logging.book_update("Creating output dir")
     if os.path.isdir(path):
         if not any(os.scandir(path)):
-            return
+            return True
         answer = Confirm.ask(
             f"The folder '[blue]{path}[/blue]' already exists. Do you want to override it?"
         )
         if answer:
             shutil.rmtree(path)
         else:
-            exit()
+            return False
     os.makedirs(path, exist_ok=True)
+    return True

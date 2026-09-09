@@ -437,7 +437,7 @@ class LegimiSource(Source):
         for attempt in range(2):
             session_id = self.authenticate()
             expired = False
-            for fmt in [1, 2, 3]:
+            for fmt in [4, 1, 2, 3]:
                 payload = struct.pack("<qq", book_id, fmt) + session_id.encode("ascii") + rem
                 pkt = struct.pack("<ihI", 21, 200, len(payload)) + payload
                 resp = self._session.post(CORE_SYNC_URL, data=pkt, headers=headers)

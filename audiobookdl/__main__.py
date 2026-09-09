@@ -181,9 +181,10 @@ def process_audiobook(source: Source, audiobook: Audiobook, options) -> None:
     elif options.cover:
         download_cover(audiobook, options)
     else:
-        download(audiobook, options)
-        download_cover(audiobook, options)        
-        source.on_download_complete(audiobook)
+        downloaded = download(audiobook, options)
+        if downloaded is not False:
+            download_cover(audiobook, options)        
+            source.on_download_complete(audiobook)
 
 
 
