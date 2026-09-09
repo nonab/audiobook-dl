@@ -47,9 +47,12 @@ def error(msg: str):
 
 def print_error_file(name: str, **kwargs):
     """Print predefined error message"""
-    msg = read_asset_file(f"assets/errors/{name}.txt").format(**kwargs)
-    msg = msg.strip()
-    error(msg)
+    try:
+        msg = read_asset_file(f"assets/errors/{name}.txt").format(**kwargs)
+        msg = msg.strip()
+        error(msg)
+    except FileNotFoundError:
+        error(f"[red]ERROR: {name}[/red]")
 
 
 def print_asset_file(path: str):

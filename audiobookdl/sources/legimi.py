@@ -35,7 +35,7 @@ CORE_SYNC_URL = "https://app.legimi.pl/svc/sync/core.aspx"
 CATALOGUE_SVC_URL = "https://app.legimi.pl/svc/catalogue/CatalogueService.svc/catalogue/lite2"
 MOBILE_GP_URL = "https://mobile-gp.legimi.pl"
 
-DEFAULT_DEVICE_ID = 6060841  # Default registered device slot (hijacked device ID)
+DEFAULT_DEVICE_CODE = "Android||Android 2.2+||Samsung:SM-S9210:2NZXl8uVMK/2yOqIUtgdw1cm55KdwNj4OD4A9IbUvfc=||PHONE"
 DEFAULT_USER_AGENT = "Dalvik/2.1.0 (Linux; U; Android 12; SM-S9210 Build/673d380.0)"
 
 
@@ -56,7 +56,8 @@ class LegimiSource(Source):
         super().__init__(options)
         self._options = options
         self._session_id: Optional[str] = None
-        self._device_id: int = int(getattr(options, "device_id", None) or DEFAULT_DEVICE_ID)
+        dev_id = getattr(options, "device_id", None)
+        self._device_id: Optional[int] = int(dev_id) if dev_id else None
         self.ebook: bool = bool(getattr(options, "ebook", None))
         self._session.headers.update({"User-Agent": DEFAULT_USER_AGENT})
         self._session_cache_path = self._get_session_cache_path()
@@ -148,6 +149,50 @@ class LegimiSource(Source):
         header = struct.pack("<ihI", proto_ver, pkt_type, len(dict_body))
         return header + dict_body
 
+    def _auto_acquire_device_id(self, username: str, password: str) -> Optional[int]:
+        """
+        Attempts to automatically register or retrieve a device ID from Legimi via ActivateRequest (Type 66).
+        """
+        try:
+            u = username.encode("utf-8")
+            p = password.encode("utf-8")
+            d = DEFAULT_DEVICE_CODE.encode("utf-8")
+
+            payload = struct.pack("<q", 0)
+            payload += struct.pack("<h", len(u)) + u
+            payload += struct.pack("<h", len(p)) + p
+            payload += struct.pack("<h", len(d)) + d
+            payload += struct.pack("<h", 0)
+
+            header = struct.pack("<ihI", 21, 66, len(payload))
+            headers = {
+                "Content-Type": "application/octet-stream",
+                "Accept": "application/octet-stream",
+                "User-Agent": DEFAULT_USER_AGENT,
+            }
+            resp = self._session.post(CORE_SYNC_URL, data=header + payload, headers=headers)
+            if len(resp.content) >= 10:
+                proto, ptype, plen = struct.unpack("<ihI", resp.content[:10])
+                if ptype == 16384:
+                    map_data = resp.content[10:]
+                    if len(map_data) >= 2:
+                        count = struct.unpack("<H", map_data[:2])[0]
+                        offset = 2
+                        for _ in range(count):
+                            if offset + 6 > len(map_data):
+                                break
+                            k, vlen = struct.unpack("<Hi", map_data[offset:offset + 6])
+                            offset += 6
+                            val = map_data[offset:offset + vlen]
+                            offset += vlen
+                            if k == 6:  # UnlimitedData.DEVICE_ID
+                                dev_id = struct.unpack("<q", val)[0]
+                                logging.debug(f"Auto-acquired Legimi device ID: {dev_id}")
+                                return dev_id
+        except Exception as e:
+            logging.debug(f"Failed to auto-acquire Legimi device ID: {e}")
+        return None
+
     def authenticate(self, force: bool = False) -> str:
         """Authenticates with Legimi sync service, obtaining a session token."""
         if not force and self._session_id:
@@ -171,6 +216,14 @@ class LegimiSource(Source):
             raise UserNotAuthorized(
                 "Legimi requires --username and --password (and optional --device-id) to establish sync session."
             )
+
+        if not self._device_id:
+            self._device_id = self._auto_acquire_device_id(username, password)
+            if not self._device_id:
+                raise UserNotAuthorized(
+                    "Could not determine Legimi device ID. If your device limit is reached, "
+                    "please specify your registered device ID via --device-id <ID>."
+                )
 
         logging.log(f"Authenticating with Legimi (device ID {self._device_id})...")
         pkt = self._build_auth_req(username, password, self._device_id)
