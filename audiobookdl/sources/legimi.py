@@ -82,7 +82,7 @@ class LegimiSource(Source):
         db_dir = getattr(self._options, "database_dir", None)
         if db_dir:
             return Path(db_dir) / "legimi_session.json"
-        return Path.home() / ".config" / "audiobook-dl" / "legimi_session.json"
+        return Path.cwd() / "legimi_session.json"
 
     def _load_cached_session(self, user: Optional[str] = None) -> Optional[str]:
         try:
@@ -315,6 +315,10 @@ class LegimiSource(Source):
                         )
                     except Exception as e:
                         logging.debug(f"Subscription update notification error: {e}")
+                    try:
+                        self.authenticate(force=True)
+                    except Exception as e:
+                        logging.debug(f"Re-authentication error after device recycle: {e}")
                     return True
                 else:
                     logging.debug(f"Legimi device recycle returned status {status_code}.")
@@ -359,8 +363,11 @@ class LegimiSource(Source):
                         "Legimi device limit reached. "
                         "Please specify your registered device ID via --device-id <ID>."
                     )
-            elif ptype == 2086:
-                logging.log(f"Book [blue]{book_id}[/] is now active on your shelf.")
+            elif ptype in (2086, 1051):
+                if ptype == 2086:
+                    logging.log(f"Book [blue]{book_id}[/] is now active on your shelf.")
+                else:
+                    logging.log(f"Book [blue]{book_id}[/] is already active on your shelf.")
                 return True
             else:
                 logging.debug(f"Borrow returned unexpected packet type: {ptype}")
@@ -499,10 +506,24 @@ class LegimiSource(Source):
             resp = self._session.post(CORE_SYNC_URL, data=pkt, headers=headers)
             raw = resp.content
 
-            k_match = re.search(b"\x11\x00\x10\x00\x00\x00(.{16})", raw, re.DOTALL)
-            iv_match = re.search(b"\x12\x00\x10\x00\x00\x00(.{16})", raw, re.DOTALL)
-            if k_match and iv_match:
-                return k_match.group(1), iv_match.group(1)
+            if len(raw) >= 10:
+                proto, ptype, plen = struct.unpack("<ihI", raw[:10])
+                if ptype == 257:  # ERR_AUTH_EXPIRED
+                    self.authenticate(force=True)
+                    continue
+
+            # Look specifically for book_id's record in shelf response
+            target = b"\x0a\x00\x08\x00\x00\x00" + b_id
+            pos = raw.find(target)
+            if pos == -1:
+                pos = raw.find(b_id)
+
+            if pos != -1:
+                chunk = raw[pos : pos + 4096]
+                k_match = re.search(b"\x11\x00\x10\x00\x00\x00(.{16})", chunk, re.DOTALL)
+                iv_match = re.search(b"\x12\x00\x10\x00\x00\x00(.{16})", chunk, re.DOTALL)
+                if k_match and iv_match:
+                    return k_match.group(1), iv_match.group(1)
 
         raise GenericAudiobookDLException(f"Could not retrieve DRM keys for book {book_id}")
 
